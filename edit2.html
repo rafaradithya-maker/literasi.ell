@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sistem Pemblokiran Video Hoax — Rafarel</title>
+  <meta name="description" content="Demo web untuk sistem pendeteksian dan pemblokiran video hoax berbasis metadata dan analisis sederhana." />
+  <style>
+    :root{--bg:#f4f7fb;--card:#fff;--accent:#eb2525;--muted:#6b7280}
+    *{box-sizing:border-box}
+    body{font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; margin:0; background:var(--bg); color:#0f172a}
+    header{background:linear-gradient(90deg,var(--accent),#7c3aed);color:white;padding:28px 20px}
+    .container{max-width:1100px;margin:22px auto;padding:0 20px}
+    .card{background:var(--card);border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.06);padding:18px;margin-bottom:16px}
+    h1{margin:0;font-size:22px}
+    p.lead{color:white;margin-top:6px}
+    .grid{display:grid;grid-template-columns:1fr 360px;gap:18px}
+    .form-row{display:flex;gap:8px;align-items:center}
+    input[type=text],select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid #e6eef8}
+    button{background:var(--accent);color:white;border:none;padding:10px 14px;border-radius:8px;cursor:pointer}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:10px;border-bottom:1px solid #eef2f7;text-align:left;font-size:14px}
+    th{background:#f1f5f9;font-weight:600}
+    .tag{display:inline-block;padding:6px 8px;border-radius:999px;font-size:12px}
+    .tag.safe{background:#e6f3ff;color:#0b3a66}
+    .tag.suspect{background:#fff4e6;color:#7a3b00}
+    .tag.hoax{background:#ffe6e9;color:#6b021a}
+    .muted{color:var(--muted);font-size:13px}
+    .actions{display:flex;gap:8px}
+    @media(max-width:980px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Sistem Pemblokiran Video Hoax</h1>
+      <p class="lead">Demo berbasis materi tugas literasi — pendeteksian sederhana, penandaan, dan pemblokiran video hoax.</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>Ringkasan</h2>
+      <p class ="muted">Sistem ini mendeteksi hoax menggunakan kombinasi metadata (sumber, usia akun), analisis teks (judul/deskripsi), dan skor keaslian. Hasilnya dapat ditandai sebagai <strong>AMAN</strong>, <strong>MENCURIGAKAN</strong>, atau <strong>HOAX</strong> — lalu diputuskan apakah akan <em>diblokir</em>.</p>
+    </section>
+
+    <section class="grid">
+      <div>
+        <div class="card">
+          <h2>Daftar Video</h2>
+          <div class="muted">Tambahkan video baru untuk menguji sistem — kolom "Durasi" dan "Sumber" akan memengaruhi analisis.</div>
+
+          <div style="margin-top:12px" class="card">
+            <div class="form-row">
+              <input id="title" type="text" placeholder="Judul video" />
+              <input id="source" type="text" placeholder="Sumber (mis. Youtube, Twitter)" />
+            </div>
+            <div style="margin-top:8px" class="form-row">
+              <input id="uploader" type="text" placeholder="User/Channel" />
+              <input id="duration" type="text" placeholder="Durasi (detik)" />
+            </div>
+            <div style="margin-top:8px">
+              <textarea id="description" rows="3" placeholder="Deskripsi / cuplikan teks dari video (dipakai untuk deteksi kata kunci)"></textarea>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:8px">
+              <button id="analyzeBtn">Analisis & Tambah</button>
+              <button id="importSample">Tambah Sample Otomatis</button>
+              <button id="exportCsv">Export CSV</button>
+            </div>
+          </div>
+
+          <table id="videosTable">
+            <thead>
+              <tr><th>ID</th><th>Judul</th><th>Sumber</th><th>Keaslian</th><th>Status</th><th>Aksi</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <h2>Log Pemblokiran</h2>
+          <div class="muted">Riwayat tindakan pemblokiran dan alasan.</div>
+          <table id="logTable">
+            <thead><tr><th>Tanggal</th><th>Video ID</th><th>Aksi</th><th>Alasan</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <aside>
+        <div class="card">
+          <h2>Kontrol Sistem</h2>
+          <label class="muted">Ambang Keaslian (0-100)</label>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <input id="threshold" type="range" min="0" max="100" value="40" />
+            <div id="thresholdVal">40</div>
+          </div>
+
+          <div style="margin-top:12px">
+            <label class="muted">Kata kunci bahaya (pisahkan dengan koma)</label>
+            <textarea id="keywords" rows="4">hoax,tipu,bohong,provokasi,ujaran kebencian</textarea>
+          </div>
+
+          <div style="margin-top:12px">
+            <label class="muted">Kebijakan Otomatis</label>
+            <div style="margin-top:8px">
+              <label><input id="autoBlock" type="checkbox" checked /> Blokir otomatis jika status HOAX</label>
+            </div>
+          </div>
+
+          <div style="margin-top:12px">
+            <h3>Statistik Singkat</h3>
+            <div class="muted">Total video: <span id="statTotal">0</span></div>
+            <div class="muted">Hoax: <span id="statHoax">0</span> — Mencurigakan: <span id="statSuspect">0</span> — Aman: <span id="statSafe">0</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Catatan Sistem</h2>
+          <p class="muted">Ini adalah demo edukasi. Untuk produksi, gunakan model ML, verifikasi sumber pihak ketiga, dan proses banding manual untuk mengurangi kesalahan identifikasi.</p>
+        </div>
+      </aside>
+    </section>
+
+    <section class="card">
+      <h2>Referensi Materi</h2>
+      <p class="muted">Sistem ini menggunakan struktur tabel dari materi tugas: DATA_VIDIO, DATA_ANALISIS, dan DATA_LAPORAN sebagai acuan struktur data yang disimpan di sisi klien (demo).</p>
+    </section>
+
+    <footer style="text-align:center;color:var(--muted);padding:18px 0">&copy; 2025 Rafarel — Demo Sistem Pemblokiran</footer>
+  </main>
+
+  <script>
+    // Simple in-browser demo logic (no backend). Data stored in-memory.
+    const videos = [];
+    const logs = [];
+    let idCounter = 1000;
+
+    const tableBody = document.querySelector('#videosTable tbody');
+    const logBody = document.querySelector('#logTable tbody');
+    const thresholdInput = document.getElementById('threshold');
+    const thresholdVal = document.getElementById('thresholdVal');
+    const keywordsInput = document.getElementById('keywords');
+
+    function calcAuthenticity({source, uploader, duration, title, description}){
+      // Base score 50
+      let score = 50;
+      // penalize unknown sources
+      const trusted = ['youtube','youtube.com','tiktok','vimeo'];
+      if(!trusted.some(t=>source.toLowerCase().includes(t))) score -= 10;
+      // short account / suspicious uploader name
+      if(uploader.length < 4) score -= 8;
+      // very short duration may be suspicious
+      const dur = parseInt(duration) || 0;
+      if(dur < 20) score -= 6;
+      if(dur > 1000) score += 6;
+      // keyword matches reduce score
+      const kws = keywordsInput.value.split(',').map(k=>k.trim().toLowerCase()).filter(Boolean);
+      const text = (title + ' ' + description).toLowerCase();
+      let matches=0;
+      kws.forEach(k=>{ if(text.includes(k)) matches++; });
+      score -= matches * 12;
+      // clamp
+      if(score<0) score=0; if(score>100) score=100;
+      return Math.round(score);
+    }
+
+    function analyzeAndAdd(){
+      const title = document.getElementById('title').value.trim();
+      const source = document.getElementById('source').value.trim();
+      const uploader = document.getElementById('uploader').value.trim();
+      const duration = document.getElementById('duration').value.trim();
+      const description = document.getElementById('description').value.trim();
+      if(!title){ alert('Isi judul minimal.'); return; }
+      const data = {id: 'VID'+idCounter++, title, source, uploader, duration, description};
+      data.score = calcAuthenticity(data);
+      const t = parseInt(thresholdInput.value,10);
+      if(data.score < t/2) data.status='HOAX';
+      else if(data.score < t) data.status='MENCURIGAKAN';
+      else data.status='AMAN';
+      videos.push(data);
+      if(document.getElementById('autoBlock').checked && data.status==='HOAX') doBlock(data,'Blokir otomatis (status HOAX)');
+      render();
+      clearForm();
+    }
+
+    function render(){
+      // stats
+      document.getElementById('statTotal').textContent = videos.length;
+      document.getElementById('statHoax').textContent = videos.filter(v=>v.status==='HOAX').length;
+      document.getElementById('statSuspect').textContent = videos.filter(v=>v.status==='MENCURIGAKAN').length;
+      document.getElementById('statSafe').textContent = videos.filter(v=>v.status==='AMAN').length;
+
+      tableBody.innerHTML = '';
+      videos.forEach(v=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${v.id}</td>
+          <td><strong>${escapeHtml(v.title)}</strong><div class="muted" style="margin-top:6px">${escapeHtml(v.uploader)}</div></td>
+          <td>${escapeHtml(v.source)}</td>
+          <td>${v.score}</td>
+          <td>${statusTag(v.status)}</td>
+          <td class="actions">
+            <button onclick="viewDetail('${v.id}')">Lihat</button>
+            <button onclick="toggleBlock('${v.id}')">${v.blocked? 'Buka Blokir' : 'Blokir'}</button>
+            <button onclick="report('${v.id}')">Laporkan</button>
+          </td>
+        `;
+        tableBody.appendChild(tr);
+      });
+
+      logBody.innerHTML = '';
+      logs.slice().reverse().forEach(l=>{
+        const r = document.createElement('tr');
+        r.innerHTML = `<td>${l.date}</td><td>${l.videoId}</td><td>${l.action}</td><td>${escapeHtml(l.reason)}</td>`;
+        logBody.appendChild(r);
+      });
+    }
+
+    function statusTag(s){
+      if(s==='AMAN') return '<span class="tag safe">AMAN</span>';
+      if(s==='MENCURIGAKAN') return '<span class="tag suspect">MENCURIGAKAN</span>';
+      return '<span class="tag hoax">HOAX</span>';
+    }
+
+    function doBlock(video, reason){
+      video.blocked = true;
+      logs.push({date: new Date().toLocaleString('id-ID'), videoId: video.id, action: 'DIBLOKIR', reason});
+      render();
+    }
+
+    function toggleBlock(id){
+      const v = videos.find(x=>x.id===id); if(!v) return;
+      if(v.blocked){ v.blocked=false; logs.push({date:new Date().toLocaleString('id-ID'),videoId:id,action:'DIBLOKIR DIBATALKAN',reason:'Pembatalan manual'}) }
+      else { doBlock(v,'Diblokir manual oleh moderator') }
+      render();
+    }
+
+    function report(id){
+      const v = videos.find(x=>x.id===id); if(!v) return; logs.push({date:new Date().toLocaleString('id-ID'),videoId:id,action:'DILAPORKAN',reason:'Dilaporkan pengguna'}); render();
+    }
+
+    function viewDetail(id){
+      const v = videos.find(x=>x.id===id); if(!v) return; alert('Detail:\nID: '+v.id+'\nJudul: '+v.title+'\nScore: '+v.score+'\nStatus: '+v.status+'\nDeskripsi: '+v.description);
+    }
+
+    function clearForm(){ document.getElementById('title').value='';document.getElementById('source').value='';document.getElementById('uploader').value='';document.getElementById('duration').value='';document.getElementById('description').value=''; }
+
+    function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    thresholdInput.addEventListener('input',()=>{ thresholdVal.textContent = thresholdInput.value });
+    document.getElementById('analyzeBtn').addEventListener('click',analyzeAndAdd);
+    document.getElementById('importSample').addEventListener('click',()=>{
+      const samples = [
+        {title:'Klaim vaksin bikin magnet', source:'Twitter', uploader:'usr_21', duration:'45', description:'vaksin bikin magnet pada tubuh'},
+        {title:'Demo politik di kota X', source:'Youtube', uploader:'mediatv', duration:'240', description:'cuplikan demo rasis provokasi'},
+        {title:'Tips sehat alami', source:'Vimeo', uploader:'health_guru', duration:'360', description:'cara alami tetap sehat tanpa obat'},
+      ];
+      samples.forEach(s=>{ document.getElementById('title').value=s.title;document.getElementById('source').value=s.source;document.getElementById('uploader').value=s.uploader;document.getElementById('duration').value=s.duration;document.getElementById('description').value=s.description; analyzeAndAdd(); });
+    });
+
+    function exportCsv(){
+      const rows = [['Id','Judul','Sumber','Uploader','Durasi','Score','Status','Blocked']];
+      videos.forEach(v=> rows.push([v.id,v.title,v.source,v.uploader,v.duration,v.score,v.status, v.blocked? 'YA':'TIDAK']));
+      const csv = rows.map(r=> r.map(cell=> '"'+String(cell).replace(/"/g,'""')+'"').join(',')).join('\n');
+      const blob = new Blob([csv],{type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'videos_export.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    }
+
+    document.getElementById('exportCsv').addEventListener('click',exportCsv);
+
+    // initial render
+    render();
+  </script>
+</body>
+</html>
